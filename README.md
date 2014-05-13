@@ -30,13 +30,13 @@ Require it in your application:
 通过URL获取文章内容
 ```clojure
 (barber/url->article "http://...")
-=> <div>text...</div>
-
+=> {:title title
+    :html <div>text...</div>}
 ```
 
 通过bytes数据获取文章内容
 ```clojure
 (barber/bytes->article bytes-content charset)
-=> <div>text...</div>
-
+=> {:title title
+    :html <div>text...</div>}
 ```

@@ -131,14 +131,16 @@
 (defn hiccup->article
   [hiccup-body]
   (let [doc (query [:html] hiccup-body)
+        title (query [:html :head :title] hiccup-body)
         max-strlen (find-max-strlen doc 0)
         scor (scoring doc max-strlen)
         [fen node-path ] (reduce #(if (> (first %2) (first %1)) %2 %1)
                                   (filter #(> (first %) 0) (stat-node scor [])))]
-    (println "fen->" fen)
-    (if (> fen 100)
-      (hiccup-to-html (list (clean-attr
-        (reduce #(get %1 (+ %2 2)) doc node-path)))))))
+    (if (> fen 0)
+      {:title title,
+       :weight fen
+       :html (hiccup-to-html (list (clean-attr
+                (reduce #(get %1 (+ %2 2)) doc node-path))))})))
 
 (defn html->article
   [html]
