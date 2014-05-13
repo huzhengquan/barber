@@ -1,41 +1,13 @@
 (ns barber.core
   (:use [hickory.core]
-        [hickory.zip]
-        [hiccup.core])
+        [hickory.render])
   (:require [clj-http.client :as client]))
 
-#_(let [ret (client/get "http://bj.people.com.cn/n/2014/0512/c82847-21183630.html" {:as :byte-array})]
-  (println (new String (:body ret) "gb2312"))
-  (println (new String (.getBytes (:body ret) "gb2312") "utf-8"))
-  )
-;(println (client/get "http://bj.people.com.cn/n/2014/0512/c82847-21183630.html" {:as :auto}))
-
-(defn fetch-page [url]
-  (-> (client/get url) :body parse as-hiccup))
-;  (html/parse url))
-;  (chttp/get url))
-;  (html/html-resource (java.net.URL. url)))
-;  (let [ret (chttp/get url)]
-;    (Jsoup/parse (:body ret))))
-;  (Jsoup/parse (chttp/get url)))
-(def test-html
-  "<!DOCTYPE HTML>
-  <html>
-    <head>
-      <title>hello</title>
-    </head>
-    <body>
-    <h1>title</h1>
-    <p style=\"color:red\">测试</p>
-    <p>那天的天空真郑艳丽</p>
-    <p>那天的天空真郑艳丽</p>
-    <div>测试，我在北京天安门碰到一个二羽田夕夏子，他说他嘴不能说话了。。。这叫什么事儿呀！</div>
-    </body>
-  </html>")
 
 (def thred {
   :text-tags #{:span :a :b :strong :u :pre :code :text :abbr :del :em :font :i :q :sub :sup :summary :title :p}
-  :ignore-tags #{:link :meta :script :style :head :title :footer :header :textarea :input :iframe :frame}
+  :ignore-tags #{:link :meta :script :style :head :title :footer :header :textarea :input :iframe :frame :noscript}
+  :tag-weight {:p 2 :section 5 :a 0.5 :li 0.2 :h1 1.5 :h2 2 :h3 3 :h4 3 :h5 3 :pre 3 :title 3 :code 3 :img #(+ 10 %) :article 6 :nav 0.5 :form 0.3}
   })
 
 (defn query
@@ -60,11 +32,6 @@
         numbers (map first merge-nodes)
         bv (Math/sqrt (/ (+ (apply + numbers) max-strlen) (inc (count numbers))))]
      (apply + (map #(if (> % bv) % (- % bv)) numbers))))
-;    (println merge-nodes)))
-;  (Math/sqrt (apply * 
-;    (let [sort-numbers (sort > (reduce #(if (first %1) subnodes))]
-;      (for [i (range (count sort-numbers))]
-;        (max (/ (nth sort-numbers i) (+ i 1)) 1))))))
 
 (defn find-max-strlen
   "找到最大的文字长度"
@@ -102,7 +69,11 @@
       [0 (first node)]
     :else
       (let [subnodes (map #(scoring % max-strlen) (drop 2 node))
-            fen (fortune-telling subnodes max-strlen)]
+            tag-weight (get (:tag-weight thred) (first node) 1)
+            plus (if (number? tag-weight )
+                    #(if (> % 0) (* % tag-weight) (/ % tag-weight))
+                    tag-weight)
+            fen (plus (fortune-telling subnodes max-strlen))]
         (concat [fen (first node)] subnodes))))
 
 (defn clean-attr
@@ -130,39 +101,79 @@
   [html]
   (clojure.string/replace html #"<!--(.*)-->" ""))
 
-(defn get-body
+(defn get-html-charset
+  "取出html中的charset"
+  [hiccup-body]
+  (get-charset
+    (some #(when (and (= (first %) :meta)
+                      (contains? (get % 1) :http-equiv)
+                      (= (clojure.string/lower-case (get (get % 1) :http-equiv)) "content-type"))
+                 (get (get % 1) :content))
+     (drop 2 (query [:html :head] hiccup-body)))))
+
+
+(defn url->hiccup
+  "通过url抓取网页"
   [url]
   (println url)
   (let [content (client/get url {:as :byte-array})
-        headers (:headers content)
-        body (let [hiccup-body (-> (new String (content :body)) filter-tag parse as-hiccup)
-                   charset (or (get-charset (:Content-Type headers) )
-                               (get-charset
-                                  (some #(when (and (= (first %) :meta)
-                                                    (contains? (get % 1) :http-equiv)
-                                                    (= (clojure.string/lower-case (get (get % 1) :http-equiv)) "content-type"))
-                                               (get (get % 1) :content))
-                                     (drop 2 (query [:html :head] hiccup-body))))
-                            "utf-8")]
-                (if (and (string? charset) (= (clojure.string/lower-case charset) "utf-8"))
-                  hiccup-body
-                  (-> (new String (:body content) charset) filter-tag parse as-hiccup)))
-                    
-        doc (query [:html] body)
+        head-charset (get-charset (:Content-Type (:headers content)))
+        hiccup-body (-> (new String (content :body) (or head-charset "utf-8")) filter-tag parse as-hiccup)
+        charset (or head-charset
+                    (get-html-charset hiccup-body)
+                    "utf-8")]
+     (if (or head-charset
+             (and (string? charset)
+                  (contains? ["utf-8" "utf8"] (clojure.string/lower-case charset))))
+        hiccup-body
+        (-> (new String (:body content) charset) filter-tag parse as-hiccup))))
+
+(defn hiccup->article
+  [hiccup-body]
+  (let [doc (query [:html] hiccup-body)
         max-strlen (find-max-strlen doc 0)
         scor (scoring doc max-strlen)
-        [fen node-path ] (reduce #(if (> (first %2) (first %1)) %2 %1) (filter #(> (first %) 0) (stat-node scor [])))]
-    (html (clean-attr (reduce #(get %1 (+ %2 2)) doc node-path))))
-  ;(query [:html :body] (-> test-html parse as-hiccup))
-  )
+        [fen node-path ] (reduce #(if (> (first %2) (first %1)) %2 %1)
+                                  (filter #(> (first %) 0) (stat-node scor [])))]
+    (println "fen->" fen)
+    (if (> fen 100)
+      (hiccup-to-html (list (clean-attr
+        (reduce #(get %1 (+ %2 2)) doc node-path)))))))
+
+(defn html->article
+  [html]
+  (-> html filter-tag parse as-hiccup hiccup->article))
+
+(defn bytes->article
+  [html-bytes & args]
+  (html->article (new String html-bytes (or (first args) "utf-8"))))
+
+(defn url->article
+  [url]
+  (-> url url->hiccup hiccup->article))
+
         ;(-> url chttp/get :body parse as-hiccup)))
 
-(def url (last [
+#_(def test-html
+  "<!DOCTYPE HTML>
+  <html>
+    <head>
+      <title>hello</title>
+    </head>
+    <body>
+    <h1>title</h1>
+    <p style=\"color:red\">测试</p>
+    <p>那天的天空真郑艳丽</p>
+    <p>那天的天空真郑艳丽</p>
+    <div>测试，我在北京天安门碰到一个二羽田夕夏子，他说他嘴不能说话了。。。这叫什么事儿呀！</div>
+    </body>
+  </html>")
+
+#_(def url (last [
 ;  "http://www.techweb.com.cn/it/2014-05-12/2034768.shtml"
 ;  "http://www.techweb.com.cn/internet/2014-05-12/2034741.shtml"
   "http://auto.sina.com.cn/car/2014-05-12/07201293130.shtml"
   "http://blog.kurrunk.com/post/10006.html"
-  "http://bj.people.com.cn/n/2014/0512/c82847-21183630.html"
   "http://culture.gmw.cn/2014-05/12/content_11283226.htm"
   "http://china.haiwainet.cn/n/2014/0512/c345646-20622210.html"
   "http://finance.people.com.cn/n/2014/0512/c66323-25002623.html"
@@ -177,16 +188,12 @@
   "http://www.techweb.com.cn/world/2014-05-12/2035038.shtml"
   "http://finance.cnr.cn/gs/201405/t20140512_515491821.shtml"
   "http://net.chinabyte.com/101/12948101.shtml"
+  "http://www.infzm.com/content/99939"
+  "http://bj.people.com.cn/n/2014/0512/c82847-21183630.html"
   ]))
 
-(defn foo
+#_(defn foo
   "I don't do a whole lot."
   [x]
-  #_(println (with-open [client (http/create-client)]
-    (let [response (http/GET client url)
-          body (-> response http/await http/string)]
-          body
-          )))
-  (println (get-body url))
-  (println x "Hello, World!"))
+  (println (bytes->article (:body (client/get url {:as :byte-array})) "gb2312")))
 
