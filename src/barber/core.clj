@@ -99,7 +99,7 @@
 (defn filter-tag
   "过滤不必要的标签"
   [html]
-  (clojure.string/replace html #"<!--(.*)-->" ""))
+  (clojure.string/replace html #"(?s)<!--.*?-->" ""))
 
 (defn get-html-charset
   "取出html中的charset"
@@ -131,7 +131,7 @@
 (defn hiccup->article
   [hiccup-body]
   (let [doc (query [:html] hiccup-body)
-        title (query [:html :head :title] hiccup-body)
+        title (get (query [:html :head :title] hiccup-body) 2 "无标题")
         max-strlen (find-max-strlen doc 0)
         scor (scoring doc max-strlen)
         [fen node-path ] (reduce #(if (> (first %2) (first %1)) %2 %1)
