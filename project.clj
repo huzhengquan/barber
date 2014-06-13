@@ -1,4 +1,4 @@
-(defproject barber "0.1.1-SNAPSHOT"
+(defproject barber "0.1.2-SNAPSHOT"
   :description "WEB理发师"
   :url "https://github.com/huzhengquan/barber"
   :license {:name "Eclipse Public License"
@@ -6,5 +6,5 @@
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [hickory "0.5.3"]
                  [clj-http "0.9.1"]]
-  ;:main barber.core/foo
+  :main barber.core/foo
   )

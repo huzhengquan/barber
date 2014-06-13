@@ -1,14 +1,18 @@
 (ns barber.core
   (:use [hickory.core]
         [hickory.render])
-  (:require [clj-http.client :as client]))
+  (:require [clj-http.client :as client]
+            [barber.ruse :as ruse])
+  (:import [org.jsoup.select Selector]
+           [org.jsoup.nodes Document Element]))
 
 
 (def thred {
-  :text-tags #{:span :a :b :strong :u :pre :code :text :abbr :del :em :font :i :q :sub :sup :summary :title :p}
-  :ignore-tags #{:link :meta :script :style :head :title :footer :header :textarea :input :iframe :frame :noscript}
+  :text-tags #{:span :a :b :strong :u :pre :code :text :abbr :del :em :font :i :q :sub :sup :summary :title :p :blockquote}
+  :ignore-tags #{:link :meta :script :style :head :title :footer :header :textarea :input :iframe :frame :noscript :hr :br}
   :tag-weight {:p 2 :section 5 :a 0.5 :li 0.2 :h1 1.5 :h2 2 :h3 3 :h4 3 :h5 3 :pre 3 :title 3 :code 3 :img #(+ 10 %) :article 6 :nav 0.5 :form 0.3}
   })
+
 
 (defn query
   "查询hiccup节点"
@@ -40,7 +44,7 @@
     (contains? (:ignore-tags thred) (first node))
       max-count
     (string? node)
-      (max (count node) max-count)
+      (max (count (.getBytes node)) max-count)
     (> (count node) 2)
       (apply max (map #(find-max-strlen % max-count) (drop 2 node)))
     :else
@@ -62,7 +66,7 @@
   [node max-strlen]
   (cond
     (string? node)
-      [(count (clojure.string/trim node)) :text]
+      [(count (.getBytes (clojure.string/trim node))) :text]
     (contains? (:ignore-tags thred) (first node))
       [0 (first node)]
     (< (count node) 3)
@@ -152,9 +156,34 @@
 
 (defn url->article
   [url]
-  (-> url url->hiccup hiccup->article))
+  (if-let [site-ruse (ruse/get-selector url)]
+    (select-article url (:query site-ruse) (:charset site-ruse))
+    (-> url url->hiccup hiccup->article)))
 
         ;(-> url chttp/get :body parse as-hiccup)))
+
+(defn select-article
+  [url query charset & args]
+  ;{:title  ["head > title" .text]
+  ; :article "div.show-content"}
+  (let [doc (-> url (#(client/get % {:as charset})) :body parse .body)]
+    (into {} (for [[k [css & fns]] query]
+      (let [eles (Selector/select css doc)]
+        {k (reduce (fn [ele tfn]
+                      (case tfn
+                        :text (.text ele)
+                        :ownText (.ownText ele)
+                        :first (.first ele)
+                        :val (.val ele)
+                        :id (.id ele)
+                        :nodeName (.nodeName ele)
+                        :parent (.parent ele)
+                        :last (.last ele)
+                        :outerHtml (.outerHtml ele)
+                        (.html ele)))
+                   eles fns)})))))
+;        title (.text (Selector/select "head > title" doc))
+;        art (.html (Selector/select query doc))
 
 #_(def test-html
   "<!DOCTYPE HTML>
@@ -194,8 +223,39 @@
   "http://bj.people.com.cn/n/2014/0512/c82847-21183630.html"
   ]))
 
-#_(defn foo
+(defn foo
   "I don't do a whole lot."
   [x]
-  (println (bytes->article (:body (client/get url {:as :byte-array})) "gb2312")))
+  (ruse/put "sina.com"
+            "^abc/[a-z]+.html$"
+            {:query {:html ["div.show" :html]}
+             :charset "utf-8"})
+  (ruse/put "sohu.com"
+            "^123/[a-z]+.html$"
+            {:query {:html ["div.show2" :html]}
+             :charset "utf-8"})
+  (ruse/put "sohu.com"
+            "^123/[a-z]+.html$"
+            {:query {:html ["div.show2" :html]}
+             :charset "gbk"})
+  (ruse/put "jianshu.io"
+            "^p/[a-z0-9]+$"
+            {:query {:html ["div.show" :html]}
+             :charset "utf-8"})
+  (println (ruse/get-selector "http://sina.com/abc/abc.html"))
+  (println @ruse/site-map)
+  (println (url->article "http://jianshu.io/p/6d010dab2c2a"))
+  #_(println (select-article
+              "http://jianshu.io/p/6d010dab2c2a"
+              {:html ["div.show-content" :html]
+               :author ["div.container>div.people>a.author" :first :ownText]
+               :title ["h1.title" :text]} "utf-8"))
+#_(let [url "http://www.infoq.com/cn/news/2014/05/Big-Data-Privacy-White-House-EU"
+      ;body (-> (client/get url) :body parse) 
+      body (parse "<!doctype html><html><head></head><body></body></html>") ]
+  (println (as-hickory body))
+  (println (as-hiccup body))
+  )
+)
+  ;(println (bytes->article (:body (client/get url {:as :byte-array})) "gb2312")))
 
