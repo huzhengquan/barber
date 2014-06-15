@@ -9,7 +9,7 @@ barber是一位网页理发师，给一个URL，就会把网页中重点内容�
 [Clojars](http://clojars.org/barber):
 
 ```clojure
-[barber "0.1.1-SNAPSHOT"]
+[barber "0.1.3-SNAPSHOT"]
 ```
 
 ## Usage
@@ -30,13 +30,6 @@ Require it in your application:
 通过URL获取文章内容
 ```clojure
 (barber/url->article "http://...")
-=> {:title title
-    :html <div>text...</div>}
-```
-
-通过bytes数据获取文章内容
-```clojure
-(barber/bytes->article bytes-content charset)
 => {:title title
     :html <div>text...</div>}
 ```
