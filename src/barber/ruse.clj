@@ -1,6 +1,11 @@
 (ns barber.ruse)
 
 ;
+#_(ruse/put "jianshu.io"
+            "^p/[a-z0-9]+$"
+            {:html ["div.show-content" '.html]
+             :author ["div.container>div.people>a.author" 'first '.ownText]
+             :title [nil '.title #(first (clojure.string/split % #"[\s\|]+"))]})
 
 (def site-map
   (atom {}))
@@ -20,5 +25,11 @@
   "为某URL增加规则"
   [domain rematch ruse-map]
   (swap! site-map assoc domain
-    (merge (get @site-map domain {})
-           {rematch ruse-map})))
+    (merge
+      (get @site-map domain {})
+      {rematch (into {}
+                  (for [[k [css & windup]] ruse-map]
+                    {k (cons css
+                        (for [wu windup]
+                          (cond (fn? wu) wu
+                            (symbol? wu) (eval (list 'fn ['x] (list wu 'x))))))}))})))
