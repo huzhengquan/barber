@@ -1,14 +1,17 @@
 (ns barber.means.oleola
   (:import [org.jsoup Jsoup]
            [org.jsoup.select Selector]
+           [org.jsoup.safety Cleaner Whitelist]
            [org.jsoup.nodes Document Element ]))
 
 (def tags
   "常数"
-  {:delete #{"script" "style" "textarea" "input" "noscript" "iframe" "frame"}
+  {
+   :delete #{"script" "style" "textarea" "input" "noscript" "iframe" "frame"}
+   :whitelist (into-array ["article" "section"])
 })
 
-(defn pass
+(defn- pass
   "处理文本节点"
   [ele]
   (let [weight (if (= (.tagName ele) "img")
@@ -31,26 +34,41 @@
       [weight (Math/sqrt weight)] block-parents)))
 
 
-(defn score
+(defn- score
   "评出节点的权重，包括父节点操作,返回最高分"
   [ele]
-  (if
-    (contains? (:delete tags) (.tagName ele))
-      (do (.remove ele) 0)
+  ;(if
+    ;(contains? (:delete tags) (.tagName ele))
+    ;  (do (.remove ele) 0)
     (apply max
       (cons (if (or (.hasText ele)
                     (and (= (.tagName ele) "img")
                          (.hasAttr ele "width")
                          (.hasAttr ele "height")))
                 (first (pass ele)) 0)
-        (map #(score %) (.children ele))))))
+        (map #(score %) (.children ele)))));)
+
+(defn- rm-attr
+  "删除多余的属性"
+  [attrs ele]
+  (doseq [attr attrs]
+    (.removeAttr (.getElementsByAttribute ele attr) attr))
+  ele)
 
 (defn doc->article
   ""
-  [doc]
-  {:title (.title doc)
-   :html (if-let [max-score (str (score (.body doc)))]
+  [dirtyDoc]
+  {:title (.title dirtyDoc)
+   :html (let [doc (. (Cleaner.
+                        (.addTags
+                          (. Whitelist relaxed)
+                          (:whitelist tags)))
+                      clean dirtyDoc)
+               max-score (str (score (.body doc)))]
+            (println "max score" max-score)
             (->> (map #(list (Float/parseFloat (.attr % "barber-weight")) %)
                   (.getElementsByAttributeValue doc "barber-score" max-score))
-              (sort-by first) first last .html))}
-  )
+              (sort-by first) first last
+              (rm-attr ["barber-weight" "barber-score"])
+              .html))
+   :uri (.baseUri dirtyDoc)})

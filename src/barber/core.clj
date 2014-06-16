@@ -51,9 +51,9 @@
   "http://www.techweb.com.cn/world/2014-05-12/2035038.shtml"
   "http://jianshu.io/p/6d010dab2c2a"
   "http://net.chinabyte.com/101/12948101.shtml"
-  "http://bj.people.com.cn/n/2014/0512/c82847-21183630.html"
-  "http://finance.cnr.cn/gs/201405/t20140512_515491821.shtml"
   "http://www.infzm.com/content/99939"
+  "http://finance.cnr.cn/gs/201405/t20140512_515491821.shtml"
+  "http://bj.people.com.cn/n/2014/0512/c82847-21183630.html"
   ])]
 
   (println (url->article url))
