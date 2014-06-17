@@ -65,10 +65,8 @@
                           (:whitelist tags)))
                       clean dirtyDoc)
                max-score (str (score (.body doc)))]
-            (println "max score" max-score)
             (->> (map #(list (Float/parseFloat (.attr % "barber-weight")) %)
                   (.getElementsByAttributeValue doc "barber-score" max-score))
               (sort-by first) first last
               (rm-attr ["barber-weight" "barber-score"])
-              .html))
-   :uri (.baseUri dirtyDoc)})
+              .html))})

@@ -5,13 +5,11 @@
            [org.jsoup.select Selector]
            [org.jsoup.nodes Document Element]))
 
-(defn url->document
+(defn- url->document
   [url]
   (. (. Jsoup connect url) get))
 
-;(-> url chttp/get :body parse as-hiccup)))
-
-(defn select-article
+(defn- select-article
   "{:title  [nil .title]
     :author [\"div.show-author\" '.text]
     :html [\"div.show-content\" '.html]}"
@@ -21,17 +19,29 @@
                     doc)]
         {k (reduce (fn [ele tfn] (tfn ele))
                    eles fns)}))))
+(defn put-ruse
+  "设置一个选择器规则"
+  [domain rematch ruse-map]
+  (ruse/put domain rematch ruse-map))
 
 (defn url->article
   [url]
   (if-let [doc (url->document url)]
-     (if-let [query (ruse/get-selector url)]
-       (select-article doc query)
-       (bef/doc->article doc))))
+    (merge  
+      (if-let [query (ruse/get-selector (.baseUri doc))]
+        (select-article doc query)
+        (bef/doc->article doc))
+      {:uri (.baseUri doc)})))
 
-(defn foo
+(defn- foo
   "I don't do a whole lot."
   [x]
+#_(put-ruse "jianshu.io"
+            "^p/[a-z0-9]+$"
+            {:html ["div.show-content" '.html]
+             :author ["div.container>div.people>a.author" 'first '.ownText]
+             :title [nil '.title #(first (clojure.string/split % #"[\s\|]+"))]})
+#_(println (ruse/get-selector "http://jianshu.io/p/6d010dab2c2a"))
 (let [url (last [
   "http://www.techweb.com.cn/it/2014-05-12/2034768.shtml"
   "http://www.techweb.com.cn/internet/2014-05-12/2034741.shtml"
@@ -54,6 +64,7 @@
   "http://www.infzm.com/content/99939"
   "http://finance.cnr.cn/gs/201405/t20140512_515491821.shtml"
   "http://bj.people.com.cn/n/2014/0512/c82847-21183630.html"
+  "http://t.cn/RvNKyxO"
   ])]
 
   (println (url->article url))
