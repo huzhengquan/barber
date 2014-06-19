@@ -1,4 +1,4 @@
-(defproject barber "0.1.6"
+(defproject barber "0.1.7"
   :description "web barber"
   :url "https://github.com/huzhengquan/barber"
   :license {:name "Eclipse Public License"

@@ -9,7 +9,7 @@
   "常数"
   {:whitelist (into-array ["article" "section" "del" "header" "title"]) 
    :html5-block #{"article" "section"}
-   :delete #{"iframe" "frame" "textarea" "noscript"}})
+   :delete #{"iframe" "frame" "textarea" "noscript" "form"}})
 
 (defn- pass
   "处理文本节点"
