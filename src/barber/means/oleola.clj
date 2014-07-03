@@ -15,8 +15,9 @@
   "处理文本节点"
   [ele]
   (let [weight (if (= (.tagName ele) "img")
-                 (quot (* (Integer/parseInt (.attr ele "width"))
-                          (Integer/parseInt (.attr ele "height")))
+                 (quot (try (* (Integer/parseInt (.attr ele "width"))
+                               (Integer/parseInt (.attr ele "height")))
+                          (catch Exception e 200))
                     2000.0)
                  (-> ele .ownText .getBytes count float))
         block-parents (filter

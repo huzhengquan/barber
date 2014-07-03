@@ -9,7 +9,7 @@ barber是一位网页理发师，给一个URL，就会把网页中正文内容�
 [Clojars](http://clojars.org/barber):
 
 ```clojure
-[barber "0.1.8"]
+[huzhengquan/barber "0.1.9"]
 ```
 
 ## Usage
