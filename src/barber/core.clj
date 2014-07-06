@@ -28,9 +28,15 @@
     :html [\"div.show-content\" '.html]}"
   [doc query & args]
   (into {} (for [[k [css & fns]] query]
-      (let [eles (if (string? css) (Selector/select css doc) doc)
-            ret (reduce (fn [ele tfn] (tfn ele)) eles fns)]
-        (if k {k ret})))))
+     (let [eles (if (string? css)
+                  (Selector/select css doc)
+                  doc)]
+      {k (try
+          (reduce
+            (fn [ele tfn] (tfn ele))
+            eles fns)
+          (catch Exception e nil))}
+        ))))
 
 (defn put-ruse
   "设置一个选择器规则"
@@ -44,9 +50,9 @@
       (if-let [query (ruse/get-selector (.baseUri doc))]
         (select-article doc query)
         (do
-          (print "doc->article:" url)
+          (println "html->article:" url)
           (time (bef/doc->article doc))))
-      {:uri (.baseUri doc)})))
+      {:url (.baseUri doc)})))
 
 (defn- foo
   "I don't do a whole lot."

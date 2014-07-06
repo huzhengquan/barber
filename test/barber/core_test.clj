@@ -17,3 +17,10 @@
              [:html ["div.entry-content" '.html]]
              [:title ["h1.entry-title" '.text]]])
 #_(println (ruse/get-selector "http://js.io/p/6d010dab2c2a"))
+
+#_(ruse/put "js.com"
+            "^p/[a-z0-9]+$"
+            (read-string
+            "{:html [\"div.show-content\" .html]
+             :author [\"div.container>div.people>a.author\" first .ownText]
+             :title [nil .title #(first (clojure.string/split % #\"[\\s\\|]+\"))]}"))

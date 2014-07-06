@@ -1,11 +1,6 @@
 (ns barber.ruse)
 
 ;
-#_(ruse/put "jianshu.io"
-            "^p/[a-z0-9]+$"
-            {:html ["div.show-content" '.html]
-             :author ["div.container>div.people>a.author" 'first '.ownText]
-             :title [nil '.title #(first (clojure.string/split % #"[\s\|]+"))]})
 
 (def site-map
   (atom {}))
@@ -32,4 +27,7 @@
                     {k (cons css
                         (for [wu windup]
                           (cond (fn? wu) wu
-                            (symbol? wu) (eval (list 'fn ['x] (list wu 'x))))))}))})))
+                            (symbol? wu)
+                              (eval (list 'fn ['x] (list wu 'x)))
+                            (instance? clojure.lang.Cons wu)
+                              (eval wu))))}))})))
